@@ -31,6 +31,7 @@ async function api(ruta, op = {}) {
 }
 
 // Dades
+let d_demos = [];
 let D = null, T = [], informes = 0, lliures = [], webOk = true, G = null, obert = null, TR = null, DOCS = null, MOV = null, vista = null, objectiu = 0;
 const SALES = [
   { id: 'marqueting', nom: 'Màrqueting', c: '#7C5CFF', L: [-1.6, -10.4], P: [0, -14.5] },
@@ -56,7 +57,8 @@ async function carrega() {
   const f = await foto('cova');
   if (!f) return null;
   const pend = await api('/rest/v1/accions?aplicat=is.null&select=tipus,dades&order=creat');
-  const d = f.dades; d._quan = f.actualitzat; prepara(d); pend.forEach(local);
+  try { d_demos = await api('/rest/v1/demos?select=id,inici,nom,despatx,telefon,nota&inici=gte.' + new Date(Date.now() - 36e5).toISOString() + '&order=inici'); } catch (e) { d_demos = []; }
+  const d = f.dades; d._quan = f.actualitzat; d.demos = d_demos; prepara(d); pend.forEach(local);
   desa('cova-foto', d); return d;
 }
 
@@ -104,6 +106,7 @@ function htmlAvui() {
   const dies = (d) => Math.ceil((new Date(d) - ara) / 864e5);
   return `<h3>${esc(ara.toLocaleDateString('ca-ES', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase()))}</h3><p class="m">${pla}</p>
   <div class="ks t3">${D.fites.map((f) => kpi(dies(f.d) + ' dies', esc(f.t))).join('')}</div>
+  ${(D.demos || []).length ? `<h4>Demos reservades · ${D.demos.length}</h4>${D.demos.map((x) => `<div class="li">${esc(new Date(x.inici).toLocaleString('ca-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }).replace(/^./, (c) => c.toUpperCase()))}<small>${esc(x.nom)}${x.despatx ? ' · ' + esc(x.despatx) : ''} · ${esc(x.telefon)}${x.nota ? ' · ' + esc(x.nota) : ''}</small></div>`).join('')}` : ''}
   ${D.tasques.length ? grup('avui') + grup('setmana') + grup('quan') : '<p class="cw">Res pendent. Bona feina.</p>'}
   <h4>Tota l'empresa</h4>
   <button class="li" data-sala="operacions">Diners<small>Ingressos, despeses i el que pagues cada mes</small></button>
@@ -122,6 +125,7 @@ function htmlTasca(id) {
   ${t.d ? `<h4>Per què</h4><p class="cw">${ric(t.d)}</p>` : ''}${t.des ? `<h4>Què desbloqueja</h4><p class="cw">${ric(t.des)}</p>` : ''}
   <h4>Pas a pas</h4><ol class="passos">${t.p.map((p, i) => `<li class="${t.f.includes(i) ? 'fet' : ''}"><label><input type="checkbox" data-pas="${i}" ${t.f.includes(i) ? 'checked' : ''}><span>${ric(p)}</span></label></li>`).join('')}</ol>
   ${t.id === 'trucades-alfred' && !D.pont ? `<h4>Enganxa aquí les claus de Twilio</h4><form class="grup" id="fclaus" autocomplete="off"><input class="camp" id="c-sid" placeholder="Account SID (comença per AC)" required aria-label="Account SID" autocapitalize="off" spellcheck="false"><input class="camp" id="c-tok" type="password" placeholder="Auth Token" required aria-label="Auth Token" autocomplete="off"><input class="camp" id="c-mob" inputmode="tel" placeholder="El número del teu iPhone" required aria-label="El número del teu iPhone"><button class="bt p" type="submit" style="width:100%">Connecta</button><p class="n" id="c-msg" role="alert">Es comproven amb Twilio i es desen a la base de dades de l'app. No tornen a sortir enlloc.</p></form>` : ''}
+  ${t.id === 'clau-veu' && !D.veu ? `<h4>Enganxa aquí la clau d'ElevenLabs</h4><form class="grup" id="fveu" autocomplete="off"><input class="camp" id="v-clau" type="password" placeholder="Clau d'ElevenLabs" required aria-label="Clau d'ElevenLabs" autocomplete="off" spellcheck="false"><button class="bt p" type="submit" style="width:100%">Connecta</button><p class="n" id="v-msg" role="alert">Es comprova amb una prova mínima i es desa a la base de dades de l'app. No tornarà a sortir enlloc.</p></form>` : ''}
   <div class="bts"><button class="bt p" data-fet="${esc(t.id)}">Ja està fet</button><button class="bt" data-ajuda>No ho entenc</button></div>
   <div id="ajuda" hidden><textarea class="camp" id="ajuda-t" placeholder="Digues en quin pas t'has encallat" aria-label="Dubte"></textarea><div class="bts" style="margin-top:8px"><button class="bt p" data-ajuda-envia="${esc(t.id)}">Envia-ho a l'equip</button></div></div>`;
 }
@@ -342,6 +346,16 @@ $('pan').addEventListener('submit', async (e) => {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error);
       D.pont = true; (D.connexions || []).forEach((c) => { if (c.n === 'Claus de Twilio') c.ok = true; }); omple(); avis('Claus desades. Ja pots trucar des del fix.');
+    } catch (x) { m.textContent = x.message || "No s'ha pogut connectar."; m.className = 'n err'; b.disabled = false; }
+    return;
+  }
+  if (e.target.id === 'fveu') {
+    e.preventDefault(); const m = $('v-msg'), b = e.target.querySelector('button'); b.disabled = true; m.textContent = 'Comprovant amb ElevenLabs…'; m.className = 'n';
+    try {
+      const r = await fetch(`${SB.url}/functions/v1/connecta`, { method: 'POST', headers: { apikey: SB.key, Authorization: 'Bearer ' + await clau(), 'Content-Type': 'application/json' }, body: JSON.stringify({ eleven: $('v-clau').value }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error);
+      D.veu = true; (D.connexions || []).forEach((c) => { if (c.f === 'clau-veu') c.ok = true; }); omple(); avis('Fet. L\'Alfred et dirà els avisos en català.');
     } catch (x) { m.textContent = x.message || "No s'ha pogut connectar."; m.className = 'n err'; b.disabled = false; }
     return;
   }
