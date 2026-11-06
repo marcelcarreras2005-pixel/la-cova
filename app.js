@@ -110,6 +110,7 @@ function htmlAvui() {
   <button class="li" data-sala="enginyeria">Producte<small>Web, Verifactu i el que s'està construint</small></button>
   <button class="li" data-sala="cervell">Memòria<small>Busca qualsevol document o decisió</small></button>
   <button class="li" data-sala="cafe">Equip<small>${D.agents.length - lliures.length} amb feina · ${lliures.length} a la cafeteria</small></button>
+  <button class="li" data-conn>Connexions<small>${(D.connexions || []).filter((c) => c.ok).length} de ${(D.connexions || []).length} a punt</small></button>
   ${D.miss.curs.length ? `<h4>En marxa ara · ${D.miss.curs.length}</h4>${D.miss.curs.map((m) => `<div class="li">${esc(m.t)}<small>${esc(m.a)}</small></div>`).join('')}` : ''}
   ${D.miss.fet.length ? `<h4>Fet avui per l'equip · ${D.miss.fet.length}</h4>${D.miss.fet.map((m) => `<div class="li">${esc(m.t)}<small>${esc(m.a)}</small></div>`).join('')}` : ''}
   <p class="n" style="margin-top:18px"><button class="bt sm" data-surt>Tanca la sessió</button></p>`;
@@ -120,6 +121,7 @@ function htmlTasca(id) {
   return `<h3>${esc(t.t)}</h3><p class="m">${t.tm ? esc(t.tm) + ' · ' : ''}${quan[t.q] || ''}</p>
   ${t.d ? `<h4>Per què</h4><p class="cw">${ric(t.d)}</p>` : ''}${t.des ? `<h4>Què desbloqueja</h4><p class="cw">${ric(t.des)}</p>` : ''}
   <h4>Pas a pas</h4><ol class="passos">${t.p.map((p, i) => `<li class="${t.f.includes(i) ? 'fet' : ''}"><label><input type="checkbox" data-pas="${i}" ${t.f.includes(i) ? 'checked' : ''}><span>${ric(p)}</span></label></li>`).join('')}</ol>
+  ${t.id === 'trucades-alfred' && !D.pont ? `<h4>Enganxa aquí les claus de Twilio</h4><form class="grup" id="fclaus" autocomplete="off"><input class="camp" id="c-sid" placeholder="Account SID (comença per AC)" required aria-label="Account SID" autocapitalize="off" spellcheck="false"><input class="camp" id="c-tok" type="password" placeholder="Auth Token" required aria-label="Auth Token" autocomplete="off"><input class="camp" id="c-mob" inputmode="tel" placeholder="El teu mòbil" required aria-label="El teu mòbil"><button class="bt p" type="submit" style="width:100%">Connecta</button><p class="n" id="c-msg" role="alert">Es comproven amb Twilio i es desen a la base de dades de l'app. No tornen a sortir enlloc.</p></form>` : ''}
   <div class="bts"><button class="bt p" data-fet="${esc(t.id)}">Ja està fet</button><button class="bt" data-ajuda>No ho entenc</button></div>
   <div id="ajuda" hidden><textarea class="camp" id="ajuda-t" placeholder="Digues en quin pas t'has encallat" aria-label="Dubte"></textarea><div class="bts" style="margin-top:8px"><button class="bt p" data-ajuda-envia="${esc(t.id)}">Envia-ho a l'equip</button></div></div>`;
 }
@@ -267,6 +269,11 @@ function seccioFinal(s) {
   return `${l.length ? `<h4>Últims lliuraments</h4>${l.map((d) => `<button class="li" data-doc="${esc(d.k)}">${esc(d.t)}<small>${esc(d.a)}</small></button>`).join('')}` : ''}
   <details class="plec"><summary>Equip · ${s.ag.length} agents, ${s.taula} a la taula</summary>${equip(s.ag)}</details>`;
 }
+function htmlConn() {
+  const l = D.connexions || [];
+  return `<h3>Connexions</h3><p class="m">${l.filter((c) => c.ok).length} de ${l.length} a punt</p>
+  ${l.map((c) => `<${c.f && !c.ok ? `button data-tasca="${esc(c.f)}"` : 'div'} class="li"><span style="color:var(--${c.ok ? 'ok' : c.f ? 'ambre' : 'mut'})">${c.ok ? 'Connectat' : c.f ? 'Falta' : 'Més endavant'}</span> · ${esc(c.n)}${c.e ? `<small>${esc(c.e)}</small>` : ''}${c.f && !c.ok ? '<small>Toca per veure el pas a pas</small>' : ''}</${c.f && !c.ok ? 'button' : 'div'}>`).join('')}`;
+}
 function htmlDoc(k) {
   const d = DOCS && DOCS[k]; if (!d) return '<p class="m">Carregant…</p>';
   return `<h3>${esc(d.t)}</h3><p class="m">${esc(d.a)}</p><div class="doc">${md(d.md)}</div><div class="bts"><button class="bt p" data-ok="${esc(k)}">Aprovar</button><button class="bt" data-canvis>Demanar canvis</button></div><div id="canvis" hidden><textarea class="camp" id="canvis-t" placeholder="Què vols que canviïn?" aria-label="Canvis"></textarea><div class="bts" style="margin-top:8px"><button class="bt p" data-canvis-envia="${esc(k)}">Envia</button></div></div>`;
@@ -282,7 +289,7 @@ function pinta() {
 }
 function omple() {
   const p = $('pan'), top = p.scrollTop; let h = '';
-  if (vista) { const f = { tasca: htmlTasca, informe: htmlInforme, doc: htmlDoc }[vista.t]; h = `<button class="x" data-torna>Enrere</button>${f(vista.id)}`; }
+  if (vista) { const f = { tasca: htmlTasca, informe: htmlInforme, doc: htmlDoc, conn: htmlConn }[vista.t]; h = `<button class="x" data-torna>Enrere</button>${f(vista.id)}`; }
   else h = `<button class="x" data-tanca>Tornar a l'oficina</button>${PANELLS[obert.id]()}`;
   p.innerHTML = h; p.scrollTop = top; if ($('c1')) prepMapa();
 }
@@ -299,6 +306,7 @@ $('pan').addEventListener('click', async (e) => {
   const q = (a) => e.target.closest(a); let b;
   if ((b = q('[data-cp]'))) { e.preventDefault(); try { await navigator.clipboard.writeText(b.dataset.cp); avis('Copiat'); } catch (x) { avis(b.dataset.cp); } return; }
   if (q('[data-tanca]')) return tanca();
+  if (q('[data-conn]')) { vista = { t: 'conn' }; $('hq').classList.add('gran'); $('pan').scrollTop = 0; return omple(); }
   if (q('[data-torna]')) { vista = null; $('hq').classList.toggle('gran', ['avui', 'direccio', 'operacions'].includes(obert.id)); $('pan').scrollTop = 0; return omple(); }
   if ((b = q('[data-sala]'))) { const id = b.dataset.sala; return obre(sala(id) || (id === 'cervell' ? CERV : id === 'cafe' ? CAFE : AVUI)); }
   if ((b = q('[data-tasca]'))) { vista = { t: 'tasca', id: b.dataset.tasca }; $('hq').classList.add('gran'); $('pan').scrollTop = 0; return omple(); }
@@ -327,6 +335,16 @@ $('pan').addEventListener('change', (e) => {
   const t = D.tasques.find((x) => x.id === vista.id), i = +c.dataset.pas; t.f = c.checked ? [...new Set([...t.f, i])] : t.f.filter((x) => x !== i); c.closest('li').classList.toggle('fet', c.checked); accio('tasca_pas', { id: t.id, fets: t.f });
 });
 $('pan').addEventListener('submit', async (e) => {
+  if (e.target.id === 'fclaus') {
+    e.preventDefault(); const m = $('c-msg'), b = e.target.querySelector('button'); b.disabled = true; m.textContent = 'Comprovant amb Twilio…'; m.className = 'n';
+    try {
+      const r = await fetch(`${SB.url}/functions/v1/connecta`, { method: 'POST', headers: { apikey: SB.key, Authorization: 'Bearer ' + await clau(), 'Content-Type': 'application/json' }, body: JSON.stringify({ sid: $('c-sid').value, token: $('c-tok').value, mobil: $('c-mob').value }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error);
+      D.pont = true; (D.connexions || []).forEach((c) => { if (c.n === 'Claus de Twilio') c.ok = true; }); omple(); avis('Claus desades. Ja pots trucar des del fix.');
+    } catch (x) { m.textContent = x.message || "No s'ha pogut connectar."; m.className = 'n err'; b.disabled = false; }
+    return;
+  }
   if (e.target.id !== 'fmov') return; e.preventDefault();
   const imp = parseFloat($('m-imp').value.replace(',', '.'));
   if (!(imp >= 0)) return avis('Escriu l\'import amb números.');
