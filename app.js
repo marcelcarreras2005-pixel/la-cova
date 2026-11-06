@@ -165,8 +165,9 @@ function htmlXarxes() {
   ${(x.top || []).map((t) => `<div class="post"><div class="mx"><span>${esc(net[t.xarxa] || t.xarxa)} · ${esc(t.data)}</span>${met(t.m)}</div><p>${esc(t.text)}</p><div class="bts"><button class="bt sm ${mq[t.id] === 'si' ? 'on' : ''}" data-post="${esc(t.id)}" data-v="si">Funciona</button><button class="bt sm ${mq[t.id] === 'no' ? 'off' : ''}" data-post="${esc(t.id)}" data-v="no">No en vull més</button></div></div>`).join('')}
   ${(x.prog || []).length ? `<h4>Programats · ${x.prog.length}</h4>${x.prog.map((t) => `<div class="li">${esc(t.text)}<small>${esc(net[t.xarxa] || t.xarxa)} · ${esc(t.data)}</small></div>`).join('')}` : ''}
   <h4>DM i comentaris</h4>
-  <div class="grup"><h5>LinkedIn</h5><p class="m">Avui: ${lin.connect || 0} invitacions, ${lin.dm || 0} missatges i ${lin.comment || 0} comentaris al dia des del teu Chrome.</p></div>
-  <div class="grup"><h5>Instagram</h5><p class="m">Respostes automàtiques a punt de connectar: falten dues tasques teves de Meta. Avui: ${ins.dm || 0} missatges i ${ins.comment || 0} comentaris al dia.</p></div>
+  <div class="grup"><h5>LinkedIn</h5><p class="m">Límit diari: ${lin.connect || 0} invitacions, ${lin.dm || 0} missatges i ${lin.comment || 0} comentaris, des del Chrome de SailOS.</p></div>
+  <div class="grup"><h5>Instagram</h5><p class="m">Límit diari: ${ins.dm || 0} missatges i ${ins.comment || 0} comentaris. Les respostes automàtiques esperen dues tasques teves de Meta.</p></div>
+  <a class="li" style="display:block;text-decoration:none;color:var(--fg)" href="https://claude.ai/artifact/4Pqf9UffUmZgTooCCaCrho" target="_blank" rel="noopener">Obre la cua de DM i comentaris<small>De moment viu al panell antic: aviat serà aquí</small></a>
   <button class="li" data-dec-id="dec-dm">Fins on ho automatitzem?<small>Llegeix l'informe: hi ha risc de perdre el compte de LinkedIn</small></button>
   ${seccioFinal(sala('marqueting'))}`;
 }
@@ -233,7 +234,7 @@ function htmlDiners() {
     <div class="bts"><input class="camp" id="m-imp" inputmode="decimal" placeholder="Import €" required aria-label="Import" style="flex:1 1 110px"><input class="camp" id="m-dat" type="date" value="${avui}" required aria-label="Data" style="flex:1 1 140px"></div>
     <select class="camp" id="m-cat" aria-label="Categoria">${CATS[tipusMov].map((c) => `<option>${c}</option>`).join('')}</select>
     <label class="m" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="m-rec" style="width:18px;height:18px;accent-color:var(--ok)"> Es repeteix cada mes</label>
-    <button class="bt p" type="submit">Desa</button>
+    <button class="bt p" type="submit" style="width:100%">Desa</button>
   </form>
   ${falten.length ? `<h4>Quotes que encara no has posat</h4><div class="bts">${falten.map((f) => `<button class="bt sm" data-quota="${esc(f)}">${esc(f)}</button>`).join('')}</div>` : ''}
   ${Object.keys(cat).length ? `<h4>On va el que gastes</h4>${Object.entries(cat).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<div class="fb"><span>${esc(c)}</span><div><i style="width:${v / max * 100}%"></i></div><b style="font-size:12px">${Math.round(v)}€</b></div>`).join('')}` : ''}
