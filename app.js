@@ -106,7 +106,7 @@ function htmlAvui() {
   const dies = (d) => Math.ceil((new Date(d) - ara) / 864e5);
   return `<h3>${esc(ara.toLocaleDateString('ca-ES', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase()))}</h3><p class="m">${pla}</p>
   <div class="ks t3">${D.fites.map((f) => kpi(dies(f.d) + ' dies', esc(f.t))).join('')}</div>
-  ${(D.demos || []).length ? `<h4>Demos reservades · ${D.demos.length}</h4>${D.demos.map((x) => `<div class="li">${esc(new Date(x.inici).toLocaleString('ca-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }).replace(/^./, (c) => c.toUpperCase()))}<small>${esc(x.nom)}${x.despatx ? ' · ' + esc(x.despatx) : ''} · ${esc(x.telefon)}${x.nota ? ' · ' + esc(x.nota) : ''}</small></div>`).join('')}` : ''}
+  ${(D.demos || []).length ? `<h4>Demos reservades · ${D.demos.length}</h4>${D.demos.map((x) => `<div class="li">${esc(new Date(x.inici).toLocaleString('ca-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }).replace(/^./, (c) => c.toUpperCase()))}<small>${esc(x.nom)}${x.despatx ? ' · ' + esc(x.despatx) : ''} · ${esc(x.telefon)}${x.nota ? ' · ' + esc(x.nota) : ''}</small><button class="bt sm" data-demo-esb="${esc(x.id)}" style="margin-top:6px">Cancel·la la demo</button></div>`).join('')}<p class="n">Si cancel·les una demo, esborra també l'esdeveniment del Google Calendar.</p>` : ''}
   ${D.tasques.length ? grup('avui') + grup('setmana') + grup('quan') : '<p class="cw">Res pendent. Bona feina.</p>'}
   <h4>Tota l'empresa</h4>
   <button class="li" data-sala="operacions">Diners<small>Ingressos, despeses i el que pagues cada mes</small></button>
@@ -308,6 +308,7 @@ async function docs() { if (!DOCS) { const f = await foto('docs'); DOCS = f ? f.
 
 $('pan').addEventListener('click', async (e) => {
   const q = (a) => e.target.closest(a); let b;
+  if ((b = q('[data-demo-esb]'))) { const id = b.dataset.demoEsb; D.demos = D.demos.filter((x) => x.id !== id); omple(); try { await api(`/rest/v1/demos?id=eq.${id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); avis('Demo cancel·lada. El forat torna a estar lliure.'); } catch (x) { avis("No s'ha pogut cancel·lar."); } return; }
   if ((b = q('[data-cp]'))) { e.preventDefault(); try { await navigator.clipboard.writeText(b.dataset.cp); avis('Copiat'); } catch (x) { avis(b.dataset.cp); } return; }
   if (q('[data-tanca]')) return tanca();
   if (q('[data-conn]')) { vista = { t: 'conn' }; $('hq').classList.add('gran'); $('pan').scrollTop = 0; return omple(); }
