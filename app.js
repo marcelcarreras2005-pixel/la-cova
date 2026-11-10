@@ -451,6 +451,7 @@ async function engega() {
   $('entra').hidden = true; $('nova').hidden = true; $('carrega').hidden = false;
   try {
     const d = await carrega();
+    carregaVida().then(() => { if (obert && obert.id === 'avui' && !vista) omple(); });
     if (!d) { $('carrega').textContent = 'L\'equip encara no ha pujat la primera foto. Torna en uns minuts.'; return; }
   } catch (e) {
     const v = recull('cova-foto');
