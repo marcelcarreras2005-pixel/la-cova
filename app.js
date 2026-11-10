@@ -43,6 +43,7 @@ const SALES = [
 const CAFE = { id: 'cafe', nom: 'Cafeteria', c: '#C98A4B', ag: [], L: [1.2, 9.9], P: [0, 13.2] };
 const CERV = { id: 'cervell', nom: 'El Cervell', c: '#7FA9FF' };
 const AVUI = { id: 'avui', nom: 'Avui' };
+const VID = { id: 'vida', nom: 'La meva vida' };
 const sala = (id) => SALES.find((s) => s.id === id);
 
 function prepara(d) {
@@ -109,6 +110,7 @@ function htmlAvui() {
   ${(D.demos || []).length ? `<h4>Demos reservades · ${D.demos.length}</h4>${D.demos.map((x) => `<div class="li">${esc(new Date(x.inici).toLocaleString('ca-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }).replace(/^./, (c) => c.toUpperCase()))}<small>${esc(x.nom)}${x.despatx ? ' · ' + esc(x.despatx) : ''} · ${esc(x.telefon)}${x.nota ? ' · ' + esc(x.nota) : ''}</small><button class="bt sm" data-demo-esb="${esc(x.id)}" style="margin-top:6px">Cancel·la la demo</button></div>`).join('')}<p class="n">Cancel·lar aquí allibera el forat, però l'esdeveniment del Google Calendar l'has d'esborrar tu.</p>` : ''}
   ${D.tasques.length ? grup('avui') + grup('setmana') + grup('quan') : '<p class="cw">Res pendent. Bona feina.</p>'}
   <h4>Tota l'empresa</h4>
+  <button class="li" data-sala="vida">La meva vida<small>Hàbits, notes ràpides, compres i metes</small></button>
   <button class="li" data-sala="operacions">Diners<small>Ingressos, despeses i el que pagues cada mes</small></button>
   <button class="li" data-sala="enginyeria">Producte<small>Web, Verifactu i el que s'està construint</small></button>
   <button class="li" data-sala="cervell">Memòria<small>Busca qualsevol document o decisió</small></button>
@@ -250,6 +252,33 @@ function htmlDiners() {
 }
 async function carregaMov() { try { MOV = await api('/rest/v1/moviments?select=*&order=data.desc,creat.desc&limit=500'); } catch (e) { MOV = []; avis('No s\'han pogut carregar els diners.'); } }
 
+
+// La meva vida: hàbits amb ratxa, notes ràpides, compres i metes. Es desa directament a la taula `vida`.
+let VIDA = null;
+const dia0 = (d = new Date()) => { const x = new Date(d); return new Date(x.getTime() - x.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+async function carregaVida() { try { VIDA = await api('/rest/v1/vida?select=*&order=creat.desc&limit=1000'); } catch (e) { VIDA = []; avis("No s'ha pogut carregar la vida."); } }
+function ratxa(h) {
+  const fets = new Set(VIDA.filter((x) => x.tipus === 'habit_fet' && x.dades.habit === h.id).map((x) => x.dades.dia));
+  let n = 0, d = new Date(); if (!fets.has(dia0(d))) d.setDate(d.getDate() - 1);
+  while (fets.has(dia0(d))) { n++; d.setDate(d.getDate() - 1); }
+  return { n, avui: fets.has(dia0()) };
+}
+function htmlVida() {
+  if (!VIDA) return '<h3>La meva vida</h3><p class="m">Carregant…</p>';
+  const hab = VIDA.filter((x) => x.tipus === 'habit'), notes = VIDA.filter((x) => x.tipus === 'nota' && !x.fet), compra = VIDA.filter((x) => x.tipus === 'compra'), metes = VIDA.filter((x) => x.tipus === 'meta');
+  const fets = hab.filter((h) => ratxa(h).avui).length;
+  const fila = (x, tipus) => `<div class="li"><div class="bts" style="justify-content:space-between;flex-wrap:nowrap"><span>${esc(x.text)}</span><span><button class="bt sm" data-vfet="${x.id}" data-t="${tipus}">${tipus === 'compra' && x.fet ? 'Desfés' : 'Fet'}</button> <button class="bt sm" data-vesb="${x.id}" aria-label="Esborra">×</button></span></div></div>`;
+  const nou = (id, ph) => `<form class="grup" data-vnou="${id}" autocomplete="off"><div class="bts" style="flex-wrap:nowrap"><input class="camp" placeholder="${ph}" required maxlength="160" aria-label="${ph}"><button class="bt p" type="submit">Afegeix</button></div></form>`;
+  return `<h3>La meva vida</h3><p class="m">${hab.length ? `${fets} de ${hab.length} hàbits fets avui` : 'Posa els hàbits que vols fer cada dia'}</p>
+  <h4>Hàbits d'avui</h4>
+  ${hab.map((h) => { const r = ratxa(h); return `<div class="li"><div class="bts" style="justify-content:space-between;flex-wrap:nowrap"><span>${esc(h.text)}<small>${r.n ? 'Ratxa de ' + r.n + (r.n === 1 ? ' dia' : ' dies') : 'Sense ratxa encara'}</small></span><span><button class="bt sm ${r.avui ? 'on' : ''}" data-vhab="${h.id}">${r.avui ? 'Fet' : 'Marca'}</button> <button class="bt sm" data-vesb="${h.id}" aria-label="Esborra">×</button></span></div></div>`; }).join('') || '<p class="n">Cap hàbit encara.</p>'}
+  ${nou('habit', 'Nou hàbit (ex.: Esport, Llegir 20 min)')}
+  <h4>Captura ràpida · ${notes.length}</h4>${nou('nota', 'Una idea, un recordatori, qualsevol cosa')}${notes.map((x) => fila(x, 'nota')).join('')}
+  <h4>Compres · ${compra.filter((x) => !x.fet).length} per comprar</h4>${nou('compra', 'Què cal comprar')}${compra.map((x) => fila(x, 'compra')).join('')}
+  <h4>Metes</h4>${nou('meta', 'Una meta (ex.: Primer client, Carnet…)')}${metes.map((x) => fila(x, 'meta')).join('')}`;
+}
+async function vidaEscriu(fn) { try { await fn(); await carregaVida(); omple(); } catch (e) { avis("No s'ha pogut desar."); } }
+
 // Producte, memòria i equip
 function htmlProducte() {
   const c = D.miss.curs, q = D.miss.cua;
@@ -284,7 +313,7 @@ function htmlDoc(k) {
 }
 
 // Calaix
-const PANELLS = { avui: htmlAvui, direccio: htmlDecisions, marqueting: htmlXarxes, vendes: htmlVendes, operacions: htmlDiners, enginyeria: htmlProducte, cervell: htmlCervell, cafe: htmlCafe };
+const PANELLS = { avui: htmlAvui, direccio: htmlDecisions, marqueting: htmlXarxes, vendes: htmlVendes, operacions: htmlDiners, enginyeria: htmlProducte, cervell: htmlCervell, cafe: htmlCafe, vida: htmlVida };
 function pinta() {
   const n = D.tasques.length; $('n-avui').textContent = n || ''; $('n-dec').textContent = D.decisions.length || '';
   const a = $('ara'), t = D.tasques[0];
@@ -299,8 +328,9 @@ function omple() {
 }
 function marca() { for (const b of document.querySelectorAll('#moll [data-p]')) b.setAttribute('aria-current', b.dataset.p === (obert && ({ avui: 'avui', direccio: 'dec', marqueting: 'xarxes', vendes: 'vendes' }[obert.id]))); }
 async function obre(s, v) {
-  obert = s; vista = v || null; $('hq').classList.add('obert'); $('hq').classList.toggle('gran', ['avui', 'direccio', 'operacions'].includes(s.id) || !!v); $('pan').hidden = false; $('pan').scrollTop = 0; omple(); marca(); if (G) G.centra(s.pts ? s : null);
+  obert = s; vista = v || null; $('hq').classList.add('obert'); $('hq').classList.toggle('gran', ['avui', 'direccio', 'operacions', 'vida'].includes(s.id) || !!v); $('pan').hidden = false; $('pan').scrollTop = 0; omple(); marca(); if (G) G.centra(s.pts ? s : null);
   if (s.id === 'vendes' && !TR) { const f = await foto('trucades'); TR = f ? f.dades : {}; if (obert === s) { omple(); } }
+  if (s.id === 'vida' && !VIDA) { await carregaVida(); if (obert === s) omple(); }
   if (s.id === 'operacions' && !MOV) { await carregaMov(); if (obert === s) omple(); }
 }
 function tanca() { obert = null; vista = null; $('hq').classList.remove('obert', 'gran'); $('pan').hidden = true; marca(); if (G) G.centra(null); }
@@ -310,10 +340,13 @@ $('pan').addEventListener('click', async (e) => {
   const q = (a) => e.target.closest(a); let b;
   if ((b = q('[data-demo-esb]'))) { const id = b.dataset.demoEsb; D.demos = D.demos.filter((x) => x.id !== id); omple(); try { await api(`/rest/v1/demos?id=eq.${id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); avis('Demo cancel·lada. El forat torna a estar lliure.'); } catch (x) { avis("No s'ha pogut cancel·lar."); } return; }
   if ((b = q('[data-cp]'))) { e.preventDefault(); try { await navigator.clipboard.writeText(b.dataset.cp); avis('Copiat'); } catch (x) { avis(b.dataset.cp); } return; }
+  if ((b = q('[data-vhab]'))) { const h = b.dataset.vhab, dia = dia0(), ja = VIDA.find((x) => x.tipus === 'habit_fet' && x.dades.habit === h && x.dades.dia === dia); return vidaEscriu(() => ja ? api(`/rest/v1/vida?id=eq.${ja.id}`, { method: 'DELETE' }) : api('/rest/v1/vida', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ tipus: 'habit_fet', dades: { habit: h, dia } }) })); }
+  if ((b = q('[data-vfet]'))) { const id = b.dataset.vfet, x = VIDA.find((v) => v.id === id); return vidaEscriu(() => api(`/rest/v1/vida?id=eq.${id}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ fet: b.dataset.t === 'compra' ? !x.fet : true }) }).then(() => b.dataset.t === 'nota' || b.dataset.t === 'meta' ? api(`/rest/v1/vida?id=eq.${id}`, { method: 'DELETE' }) : null)); }
+  if ((b = q('[data-vesb]'))) { const id = b.dataset.vesb; return vidaEscriu(async () => { await api(`/rest/v1/vida?dades->>habit=eq.${id}`, { method: 'DELETE' }); await api(`/rest/v1/vida?id=eq.${id}`, { method: 'DELETE' }); }); }
   if (q('[data-tanca]')) return tanca();
   if (q('[data-conn]')) { vista = { t: 'conn' }; $('hq').classList.add('gran'); $('pan').scrollTop = 0; return omple(); }
-  if (q('[data-torna]')) { vista = null; $('hq').classList.toggle('gran', ['avui', 'direccio', 'operacions'].includes(obert.id)); $('pan').scrollTop = 0; return omple(); }
-  if ((b = q('[data-sala]'))) { const id = b.dataset.sala; return obre(sala(id) || (id === 'cervell' ? CERV : id === 'cafe' ? CAFE : AVUI)); }
+  if (q('[data-torna]')) { vista = null; $('hq').classList.toggle('gran', ['avui', 'direccio', 'operacions', 'vida'].includes(obert.id)); $('pan').scrollTop = 0; return omple(); }
+  if ((b = q('[data-sala]'))) { const id = b.dataset.sala; return obre(sala(id) || (id === 'cervell' ? CERV : id === 'cafe' ? CAFE : id === 'vida' ? VID : AVUI)); }
   if ((b = q('[data-tasca]'))) { vista = { t: 'tasca', id: b.dataset.tasca }; $('hq').classList.add('gran'); $('pan').scrollTop = 0; return omple(); }
   if ((b = q('[data-fet]'))) { await accio('tasca_fet', { id: b.dataset.fet }); vista = null; avis('Fet. Una menys.'); return omple(); }
   if (q('[data-ajuda]')) { $('ajuda').hidden = false; return $('ajuda-t').focus(); }
@@ -360,6 +393,7 @@ $('pan').addEventListener('submit', async (e) => {
     } catch (x) { m.textContent = x.message || "No s'ha pogut connectar."; m.className = 'n err'; b.disabled = false; }
     return;
   }
+  if (e.target.dataset && e.target.dataset.vnou) { e.preventDefault(); const i = e.target.querySelector('input'), t = i.value.trim(); if (!t) return; i.value = ''; return vidaEscriu(() => api('/rest/v1/vida', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ tipus: e.target.dataset.vnou, text: t }) })); }
   if (e.target.id !== 'fmov') return; e.preventDefault();
   const imp = parseFloat($('m-imp').value.replace(',', '.'));
   if (!(imp >= 0)) return avis('Escriu l\'import amb números.');
